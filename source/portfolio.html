@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Preksha Mysore — UX Designer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --font-main: 'Space Grotesk', sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+    --court: #2D6A2D;
+    --court-stripe: #295F29;
+    --ball: #CCFF00;
+    --surround: #111;
+  }
+  html, body { height: 100%; overflow: hidden; }
+  body { background: var(--surround); font-family: var(--font-main); -webkit-font-smoothing: antialiased; }
+
+  @keyframes modalIn { from { opacity:0; transform:scale(0.93) translateY(14px); } to { opacity:1; transform:scale(1) translateY(0); } }
+  @keyframes scoreFlash { 0%,100%{opacity:1} 50%{opacity:0.35} }
+  @keyframes playerBob { 0%,100%{transform:translateY(0) scaleY(1)} 45%{transform:translateY(-3px) scaleY(1.01)} 55%{transform:translateY(0) scaleY(0.97)} }
+  @keyframes hitBounce { 0%{transform:translate(-50%,-50%) translateY(-90px) scale(1.25)} 30%{transform:translate(-50%,-50%) translateY(0) scale(1.3,0.7)} 38%{transform:translate(-50%,-50%) translateY(-6px) scale(0.95,1.08)} 55%{transform:translate(-50%,-50%) translateY(-38px) scale(1)} 72%{transform:translate(-50%,-50%) translateY(0) scale(1.15,0.85)} 82%{transform:translate(-50%,-50%) translateY(-12px) scale(1)} 92%{transform:translate(-50%,-50%) translateY(0) scale(1.05,0.95)} 100%{transform:translate(-50%,-50%) translateY(0) scale(1)} }
+  @keyframes hitShadow { 0%{transform:translate(-50%,-50%) scale(0.4);opacity:.15} 30%{transform:translate(-50%,-50%) scale(1);opacity:.55} 55%{transform:translate(-50%,-50%) scale(0.6);opacity:.25} 72%{transform:translate(-50%,-50%) scale(1);opacity:.5} 82%{transform:translate(-50%,-50%) scale(0.85);opacity:.35} 100%{transform:translate(-50%,-50%) scale(1);opacity:.5} }
+  @keyframes hitRipple { 0%{transform:translate(-50%,-50%) scale(0.2);opacity:.9} 100%{transform:translate(-50%,-50%) scale(3.2);opacity:0} }
+  @keyframes racketSwing { 0%{transform:rotate(0)} 30%{transform:rotate(-55deg)} 65%{transform:rotate(95deg)} 100%{transform:rotate(0)} }
+  @keyframes racketBack { 0%{transform:rotate(0)} 30%{transform:rotate(50deg)} 65%{transform:rotate(-100deg)} 100%{transform:rotate(0)} }
+  @keyframes racketServe { 0%{transform:rotate(0)} 30%{transform:rotate(-40deg)} 60%{transform:rotate(150deg)} 100%{transform:rotate(0)} }
+  @keyframes swooshTrail { 0%{opacity:0} 45%{opacity:0} 60%{opacity:.8} 100%{opacity:0} }
+  @keyframes ballToss { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+  @keyframes ballFloat { 0%,100%{transform:translateY(0) rotate(0deg)} 50%{transform:translateY(-7px) rotate(180deg)} }
+
+  .modal-scroll::-webkit-scrollbar { width: 3px; }
+  .modal-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius:2px; }
+
+  #tweaks-panel {
+    display:none; position:fixed; bottom:20px; right:20px;
+    background:#0A0A12; border:1px solid rgba(204,255,0,0.25);
+    border-radius:6px; padding:18px; width:220px; z-index:500;
+    font-family:var(--font-mono);
+    box-shadow:0 16px 40px rgba(0,0,0,0.7);
+  }
+  #tweaks-panel.visible { display:block; }
+  #tweaks-panel h3 { font-size:10px; letter-spacing:0.14em; text-transform:uppercase; color:var(--ball); margin-bottom:14px; }
+  .tweak-row { margin-bottom:12px; }
+  .tweak-row label { display:block; color:rgba(255,255,255,0.3); margin-bottom:5px; font-size:9px; letter-spacing:0.1em; text-transform:uppercase; }
+  .tweak-row select { width:100%; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.12); color:rgba(255,255,255,0.8); border-radius:3px; padding:5px 8px; font-family:var(--font-mono); font-size:11px; }
+</style>
+</head>
+<body>
+<template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#2D6A2D"/><circle cx="50" cy="50" r="20" fill="#CCFF00"/><path d="M38 40 Q44 50 38 60" stroke="#fff" stroke-width="3" fill="none"/><path d="M62 40 Q56 50 62 60" stroke="#fff" stroke-width="3" fill="none"/></svg></template>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "courtSurface": "grass",
+  "ballColor": "yellow"
+}/*EDITMODE-END*/;
+
+const COURT_COLORS = {
+  grass: { court:'#2D6A2D', stripe:'#295F29' },
+  clay:  { court:'#B8622A', stripe:'#AA5A26' },
+  hard:  { court:'#2A5FA8', stripe:'#275599' },
+};
+const BALL_COLORS = { yellow:'#CCFF00', orange:'#FF8C00', white:'#F0F0F0' };
+
+const projects = [
+  {
+    id:'01', pos:'tl', title:'Orbis', subtitle:'All-in-one SaaS Platform',
+    desc:'A unified workspace combining resources, project tracking, and timesheets — eliminating context-switching for modern product teams of 50+.',
+    tags:['SaaS','Dashboard','Enterprise'], role:'Lead UX Designer', year:'2024',
+    outcomes:[['↑ 38%','task completion'],['2×','faster onboarding'],['200+','teams adopted']],
+    accent:'#FF9C54',
+  },
+  {
+    id:'02', pos:'tr', title:'AI Bot', subtitle:'Conversational AI Interface',
+    desc:'Designing trust, personality, and transparency into an AI assistant — balancing helpfulness with cognitive ergonomics and user control.',
+    tags:['AI/Bot','Conversational UI','NLP'], role:'UX + Interaction Designer', year:'2024',
+    outcomes:[['↑ 61%','user retention'],['4.8/5','trust score'],['+42','NPS']],
+    accent:'#A47EFF',
+  },
+  {
+    id:'03', pos:'bl', title:'Roommate', subtitle:'Co-living Matchmaking App',
+    desc:'A values-driven matching system helping people find compatible roommates through transparent profiles and thoughtful onboarding.',
+    tags:['Mobile','Consumer','Research'], role:'UX Researcher + Designer', year:'2023',
+    outcomes:[['↑ 44%','match quality'],['3×','profile completion'],['#1','App Store pick']],
+    accent:'#4DFFB4',
+  },
+  {
+    id:'04', pos:'br', title:'Shop', subtitle:'E-commerce Redesign',
+    desc:'Rebuilt checkout and discovery flows for a DTC fashion brand, applying behavioral research to reduce friction at every conversion point.',
+    tags:['E-commerce','Mobile','Conversion'], role:'Product Designer', year:'2023',
+    outcomes:[['↑ 24%','conversion rate'],['↓ 18%','cart abandonment'],['$2M+','attributed rev']],
+    accent:'#FFE44D',
+  },
+];
+
+function makeBallCursor(color) {
+  const c = encodeURIComponent(color);
+  return `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='36' height='36' viewBox='0 0 36 36'%3E%3Ccircle cx='18' cy='18' r='17' fill='${c}'/%3E%3Ccircle cx='18' cy='18' r='17' fill='none' stroke='rgba(0,0,0,0.12)' stroke-width='1'/%3E%3Cpath d='M8 10 Q12 18 8 26' stroke='white' stroke-width='2.5' fill='none' stroke-linecap='round'/%3E%3Cpath d='M28 10 Q24 18 28 26' stroke='white' stroke-width='2.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") 18 18, crosshair`;
+}
+
+const PLAYER_POSES = {
+  ready:    { r:[[38,28],[44,36],[40,43]], l:[[26,28],[23,36],[38,43]], rk:[40,43,25], legs:[[28,47],[23,58],[21,71],[36,47],[41,58],[43,71]] },
+  forehand: { r:[[38,28],[46,31],[54,33]], l:[[26,28],[19,31],[14,28]], rk:[54,33,72], legs:[[28,47],[20,57],[16,71],[36,47],[44,58],[48,71]] },
+  backhand: { r:[[38,28],[33,36],[25,40]], l:[[26,28],[23,36],[25,40]], rk:[25,40,-62], legs:[[28,47],[21,58],[17,71],[36,47],[42,59],[46,71]] },
+  serve:    { r:[[38,27],[42,17],[43,9]],  l:[[26,27],[22,17],[20,8]],  rk:[43,9,12],  legs:[[29,47],[28,59],[26,71],[35,47],[39,59],[42,71]] },
+};
+function Player({ color, flip, pose='ready', delay=0, swing=0 }) {
+  const p = PLAYER_POSES[pose];
+  const skin = '#D9A27C', hair = '#2B1B14';
+  const pts = a => a.map(x => x.join(',')).join(' ');
+  const [rx, ry, rr] = p.rk;
+  const lg = p.legs;
+  return (
+    <svg width="60" height="76" viewBox="0 0 64 80" style={{ transform: flip ? 'scaleX(-1)' : 'none', overflow:'visible' }}>
+      <ellipse cx="32" cy="75" rx="17" ry="3.2" fill="rgba(0,0,0,0.35)"/>
+      <g style={{ animation:`playerBob 1.6s ease-in-out ${delay}s infinite`, transformOrigin:'32px 72px' }}>
+        <polyline points={pts([lg[0],lg[1],lg[2]])} fill="none" stroke={skin} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round"/>
+        <polyline points={pts([lg[3],lg[4],lg[5]])} fill="none" stroke={skin} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round"/>
+        <ellipse cx={lg[2][0]+1} cy={lg[2][1]+1.5} rx="4.5" ry="2.4" fill="#fff"/>
+        <ellipse cx={lg[5][0]+1} cy={lg[5][1]+1.5} rx="4.5" ry="2.4" fill="#fff"/>
+        <path d="M23 42 L41 42 L44 51 Q32 53 20 51 Z" fill="#F4F4F0"/>
+        <polyline points={pts(p.l)} fill="none" stroke={skin} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M24 26 Q32 22.5 40 26 L40.5 43 L23.5 43 Z" fill={color}/>
+        <path d="M24 26 Q32 22.5 40 26 L39.6 29 Q32 26 24.4 29 Z" fill="rgba(255,255,255,0.35)"/>
+        <rect x="29.5" y="20" width="5" height="4" fill={skin}/>
+        <circle cx="32" cy="16" r="6.2" fill={skin}/>
+        <path d="M25.6 15.5 Q26 9 32 9 Q38 9 38.4 14 L36 13 Q32 11.5 27.5 14 Z" fill={hair}/>
+        <path d="M26.5 12 Q20 13 19 20 Q22 17 26 16 Z" fill={hair}/>
+        <path d="M25.8 13 Q32 10.5 38.6 13.2 L42.5 14.6 L38.4 15.4 Q32 13.2 25.8 15.2 Z" fill={color}/>
+        <g key={swing} style={{ transformBox:'view-box', transformOrigin:`${p.r[0][0]}px ${p.r[0][1]}px`, animation: swing ? `${pose==='serve' ? 'racketServe' : pose==='backhand' ? 'racketBack' : 'racketSwing'} 0.55s cubic-bezier(.3,0,.2,1)` : 'none' }}>
+        <polyline points={pts(p.r)} fill="none" stroke={skin} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>
+        {swing > 0 && <path d="M50 6 Q66 30 50 54" fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth="2" strokeLinecap="round" style={{ animation:'swooshTrail 0.55s ease-out both' }}/>}
+        <g transform={`translate(${rx} ${ry}) rotate(${rr})`}>
+          <line x1="0" y1="2" x2="0" y2="-9" stroke="#1C1C22" strokeWidth="2.6" strokeLinecap="round"/>
+          <ellipse cx="0" cy="-17" rx="5.8" ry="7.8" fill="rgba(255,255,255,0.12)" stroke="#1C1C22" strokeWidth="1.8"/>
+          <ellipse cx="0" cy="-17" rx="5.8" ry="7.8" fill="none" stroke={color} strokeWidth="0.9"/>
+          {[-3,0,3].map(x => <line key={'v'+x} x1={x} y1="-23.5" x2={x} y2="-10.5" stroke="rgba(255,255,255,0.55)" strokeWidth="0.45"/>)}
+          {[-21,-17,-13].map(y => <line key={'h'+y} x1="-5" y1={y} x2="5" y2={y} stroke="rgba(255,255,255,0.55)" strokeWidth="0.45"/>)}
+        </g>
+        </g>
+        {pose==='serve' && <circle cx="20" cy="1" r="2.6" fill="var(--ball)" style={{ animation:`ballToss 1.6s ease-in-out ${delay}s infinite` }}/>}
+      </g>
+    </svg>
+  );
+}
+
+function CourtLines() {
+  return (
+    <svg style={{ position:'absolute', inset:0, width:'100%', height:'100%', pointerEvents:'none', zIndex:4 }} preserveAspectRatio="none">
+      {/* Outer boundary */}
+      <rect x="4%" y="3%" width="92%" height="94%" fill="none" stroke="rgba(255,255,255,0.85)" strokeWidth="2.5"/>
+      {/* Service lines */}
+      <line x1="4%" y1="28%" x2="96%" y2="28%" stroke="rgba(255,255,255,0.85)" strokeWidth="1.8"/>
+      <line x1="4%" y1="72%" x2="96%" y2="72%" stroke="rgba(255,255,255,0.85)" strokeWidth="1.8"/>
+      {/* Center vertical */}
+      <line x1="50%" y1="3%" x2="50%" y2="97%" stroke="rgba(255,255,255,0.85)" strokeWidth="2"/>
+      {/* Baseline center marks */}
+      <line x1="50%" y1="3%" x2="50%" y2="6.5%" stroke="rgba(255,255,255,0.85)" strokeWidth="3.5"/>
+      <line x1="50%" y1="93.5%" x2="50%" y2="97%" stroke="rgba(255,255,255,0.85)" strokeWidth="3.5"/>
+      {/* Service T marks */}
+      <line x1="48.5%" y1="27%" x2="51.5%" y2="29%" stroke="rgba(255,255,255,0.85)" strokeWidth="2"/>
+      <line x1="48.5%" y1="71%" x2="51.5%" y2="73%" stroke="rgba(255,255,255,0.85)" strokeWidth="2"/>
+    </svg>
+  );
+}
+
+function Net() {
+  return (
+    <div style={{ position:'absolute', left:0, right:0, top:'50%', transform:'translateY(-50%)', height:20, zIndex:10, pointerEvents:'none' }}>
+      <div style={{ position:'absolute', inset:0, background:'rgba(0,0,0,0.45)', filter:'blur(5px)', transform:'translateY(6px)' }}/>
+      <div style={{
+        position:'absolute', inset:0,
+        background:'linear-gradient(to bottom, #DCDCDC 0%, #A0A0A0 100%)',
+        backgroundImage:'repeating-linear-gradient(90deg, rgba(0,0,0,0.13) 0px, rgba(0,0,0,0.13) 1px, transparent 1px, transparent 14px)',
+      }}/>
+      <div style={{ position:'absolute', top:0, left:0, right:0, height:3, background:'#F5F5F5', boxShadow:'0 1px 4px rgba(0,0,0,0.5)' }}/>
+      {[0,1].map(i => (
+        <div key={i} style={{
+          position:'absolute', [i===0?'left':'right']:-5,
+          top:-22, bottom:-10, width:8,
+          background:'linear-gradient(to right, #888, #CCC)',
+          borderRadius:3,
+        }}/>
+      ))}
+      <div style={{ position:'absolute', left:'50%', transform:'translateX(-50%)', top:0, bottom:0, width:10, background:'rgba(255,255,255,0.5)' }}/>
+    </div>
+  );
+}
+
+function Quadrant({ project, onOpen }) {
+  const [hov, setHov] = useState(false);
+  const isTop = project.pos.startsWith('t');
+  const isLeft = project.pos.endsWith('l');
+
+  return (
+    <div
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      onClick={e => onOpen(project, e)}
+      style={{
+        position:'relative', overflow:'hidden',
+        display:'flex', flexDirection:'column',
+        justifyContent: isTop ? 'flex-end' : 'flex-start',
+        alignItems: isLeft ? 'flex-start' : 'flex-end',
+        padding:'24px 32px',
+        background: hov ? `radial-gradient(ellipse at ${isLeft?'25%':'75%'} ${isTop?'75%':'25%'}, ${project.accent}28 0%, transparent 65%)` : 'transparent',
+        transition:'background 0.35s',
+        cursor:'inherit',
+      }}
+    >
+      {/* Ghost number */}
+      <div style={{
+        position:'absolute',
+        top: isTop ? 'auto' : 8, bottom: isTop ? 8 : 'auto',
+        left: isLeft ? 'auto' : 8, right: isLeft ? 8 : 'auto',
+        fontFamily:'var(--font-mono)', fontWeight:700, fontSize:100,
+        color: hov ? `${project.accent}22` : 'rgba(255,255,255,0.08)',
+        lineHeight:1, userSelect:'none', transition:'all 0.4s',
+        transform: hov ? 'scale(1.06)' : 'scale(1)',
+      }}>{project.id}</div>
+
+      {/* Content */}
+      <div style={{ position:'relative', zIndex:3, textAlign: isLeft ? 'left' : 'right' }}>
+        <div style={{ display:'flex', gap:5, flexWrap:'wrap', justifyContent: isLeft?'flex-start':'flex-end', marginBottom:8 }}>
+          {project.tags.map(t => (
+            <span key={t} style={{
+              fontFamily:'var(--font-mono)', fontSize:9, letterSpacing:'0.1em', textTransform:'uppercase',
+              padding:'3px 8px',
+              background: hov ? `${project.accent}18` : 'rgba(255,255,255,0.07)',
+              border:`1px solid ${hov ? project.accent+'55' : 'rgba(255,255,255,0.18)'}`,
+              color: hov ? project.accent : 'rgba(255,255,255,0.45)',
+              borderRadius:2, transition:'all 0.3s',
+            }}>{t}</span>
+          ))}
+        </div>
+        <h2 style={{
+          fontFamily:'var(--font-main)', fontWeight:700,
+          fontSize: hov ? 42 : 34, letterSpacing:'-0.03em', color:'#fff',
+          lineHeight:1, marginBottom:5, transition:'font-size 0.2s ease',
+          textShadow: hov ? `0 0 30px ${project.accent}80` : 'none',
+        }}>{project.title}</h2>
+        <p style={{
+          fontFamily:'var(--font-mono)', fontSize:10,
+          color: hov ? project.accent : 'rgba(255,255,255,0.38)',
+          letterSpacing:'0.08em', textTransform:'uppercase', transition:'color 0.3s',
+          marginBottom: hov ? 10 : 0,
+        }}>{project.subtitle}</p>
+        <div style={{
+          overflow:'hidden', maxHeight: hov ? 24 : 0,
+          opacity: hov ? 1 : 0, transition:'all 0.3s',
+          fontFamily:'var(--font-mono)', fontSize:9, letterSpacing:'0.14em',
+          color: project.accent,
+          display:'flex', alignItems:'center', gap:6,
+          justifyContent: isLeft?'flex-start':'flex-end',
+        }}>
+          <span style={{ width:16, height:1, background:project.accent, display:'inline-block' }}/>
+          OPEN CASE STUDY
+        </div>
+      </div>
+
+      {/* Glow border */}
+      <div style={{
+        position:'absolute', inset:0,
+        boxShadow:`inset 0 0 50px ${project.accent}18`,
+        opacity: hov ? 1 : 0, transition:'opacity 0.3s',
+        pointerEvents:'none', zIndex:1,
+      }}/>
+    </div>
+  );
+}
+
+function ProjectModal({ project, onClose }) {
+  useEffect(() => {
+    const h = e => { if(e.key==='Escape') onClose(); };
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
+  }, []);
+
+  return (
+    <div onClick={e => e.target===e.currentTarget && onClose()} style={{
+      position:'fixed', inset:0, zIndex:300,
+      background:'rgba(0,0,0,0.88)', backdropFilter:'blur(12px)',
+      display:'flex', alignItems:'center', justifyContent:'center',
+      animation:'modalIn 0.28s ease',
+    }}>
+      <div className="modal-scroll" style={{
+        background:'#0B0C12',
+        border:`1px solid ${project.accent}35`,
+        borderTop:`3px solid ${project.accent}`,
+        borderRadius:10, width:'min(680px,92vw)',
+        maxHeight:'88vh', overflow:'auto',
+        padding:'44px 48px', position:'relative',
+        boxShadow:`0 0 80px ${project.accent}18, 0 40px 80px rgba(0,0,0,0.7)`,
+      }}>
+        <button onClick={onClose} style={{
+          position:'absolute', top:18, right:18, background:'none',
+          border:'1px solid rgba(255,255,255,0.12)', color:'rgba(255,255,255,0.4)',
+          width:30, height:30, borderRadius:4, cursor:'pointer',
+          fontFamily:'var(--font-mono)', fontSize:13,
+          transition:'all 0.2s',
+        }}
+        onMouseEnter={e => { e.currentTarget.style.borderColor=project.accent; e.currentTarget.style.color=project.accent; }}
+        onMouseLeave={e => { e.currentTarget.style.borderColor='rgba(255,255,255,0.12)'; e.currentTarget.style.color='rgba(255,255,255,0.4)'; }}
+        >✕</button>
+
+        <div style={{ display:'flex', alignItems:'baseline', gap:18, marginBottom:28 }}>
+          <span style={{ fontFamily:'var(--font-mono)', fontSize:52, fontWeight:700, color:`${project.accent}20`, lineHeight:1, userSelect:'none' }}>{project.id}</span>
+          <div>
+            <h2 style={{ fontFamily:'var(--font-main)', fontWeight:700, fontSize:40, letterSpacing:'-0.03em', color:'#fff', lineHeight:1, marginBottom:6 }}>{project.title}</h2>
+            <p style={{ fontFamily:'var(--font-mono)', fontSize:11, color:project.accent, letterSpacing:'0.1em', textTransform:'uppercase' }}>{project.subtitle}</p>
+          </div>
+        </div>
+
+        <div style={{ display:'flex', gap:20, alignItems:'center', marginBottom:24, paddingBottom:24, borderBottom:'1px solid rgba(255,255,255,0.06)' }}>
+          <div>
+            <div style={{ fontFamily:'var(--font-mono)', fontSize:9, color:'rgba(255,255,255,0.25)', letterSpacing:'0.12em', textTransform:'uppercase', marginBottom:4 }}>Role</div>
+            <div style={{ fontSize:13, color:'rgba(255,255,255,0.75)' }}>{project.role}</div>
+          </div>
+          <div>
+            <div style={{ fontFamily:'var(--font-mono)', fontSize:9, color:'rgba(255,255,255,0.25)', letterSpacing:'0.12em', textTransform:'uppercase', marginBottom:4 }}>Year</div>
+            <div style={{ fontFamily:'var(--font-mono)', fontSize:13, color:'rgba(255,255,255,0.75)' }}>{project.year}</div>
+          </div>
+          <div style={{ marginLeft:'auto', display:'flex', gap:6 }}>
+            {project.tags.map(t => (
+              <span key={t} style={{
+                fontFamily:'var(--font-mono)', fontSize:9, letterSpacing:'0.08em', textTransform:'uppercase',
+                padding:'4px 10px', border:`1px solid ${project.accent}45`, color:project.accent, borderRadius:2,
+              }}>{t}</span>
+            ))}
+          </div>
+        </div>
+
+        <p style={{ fontSize:15, lineHeight:1.8, color:'rgba(255,255,255,0.62)', marginBottom:32, fontWeight:300 }}>{project.desc}</p>
+
+        <div style={{ marginBottom:28 }}>
+          <div style={{ fontFamily:'var(--font-mono)', fontSize:9, color:'rgba(255,255,255,0.25)', letterSpacing:'0.12em', textTransform:'uppercase', marginBottom:14 }}>Impact</div>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:12 }}>
+            {project.outcomes.map(([num,label],i) => (
+              <div key={i} style={{
+                padding:'16px 18px',
+                background:`${project.accent}0C`, border:`1px solid ${project.accent}28`, borderRadius:6,
+              }}>
+                <div style={{ fontFamily:'var(--font-mono)', fontSize:22, fontWeight:600, color:project.accent, lineHeight:1, marginBottom:4 }}>{num}</div>
+                <div style={{ fontFamily:'var(--font-mono)', fontSize:9, color:'rgba(255,255,255,0.35)', letterSpacing:'0.08em', textTransform:'uppercase' }}>{label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ height:160, borderRadius:6, border:`1px dashed ${project.accent}30`, display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:8 }}>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <rect x="2" y="4" width="20" height="14" rx="2" stroke={project.accent} strokeWidth="1.5" opacity="0.3"/>
+            <line x1="8" y1="20" x2="16" y2="20" stroke={project.accent} strokeWidth="1.5" opacity="0.3"/>
+          </svg>
+          <span style={{ fontFamily:'var(--font-mono)', fontSize:10, color:`${project.accent}40`, letterSpacing:'0.1em' }}>SCREENS / MOCKUPS</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AboutModal({ onClose, ballColor }) {
+  useEffect(() => {
+    const h = e => { if(e.key==='Escape') onClose(); };
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
+  }, []);
+
+  return (
+    <div onClick={e => e.target===e.currentTarget && onClose()} style={{
+      position:'fixed', inset:0, zIndex:300,
+      background:'rgba(0,0,0,0.88)', backdropFilter:'blur(12px)',
+      display:'flex', alignItems:'center', justifyContent:'center',
+      animation:'modalIn 0.28s ease',
+    }}>
+      <div style={{
+        background:'#0B0C12', border:`1px solid ${ballColor}30`, borderTop:`3px solid ${ballColor}`,
+        borderRadius:10, width:'min(500px,92vw)', padding:'44px 48px', position:'relative',
+        boxShadow:`0 0 60px ${ballColor}15, 0 30px 70px rgba(0,0,0,0.7)`,
+      }}>
+        <button onClick={onClose} style={{
+          position:'absolute', top:18, right:18, background:'none',
+          border:'1px solid rgba(255,255,255,0.12)', color:'rgba(255,255,255,0.4)',
+          width:30, height:30, borderRadius:4, cursor:'pointer',
+          fontFamily:'var(--font-mono)', fontSize:13,
+        }}>✕</button>
+
+        <div style={{ marginBottom:24, animation:'ballFloat 3s ease-in-out infinite' }}>
+          <svg width="36" height="36" viewBox="0 0 36 36">
+            <circle cx="18" cy="18" r="17" fill={ballColor}/>
+            <path d="M8 10 Q12 18 8 26" stroke="white" strokeWidth="2.5" fill="none" strokeLinecap="round"/>
+            <path d="M28 10 Q24 18 28 26" stroke="white" strokeWidth="2.5" fill="none" strokeLinecap="round"/>
+          </svg>
+        </div>
+        <div style={{ fontFamily:'var(--font-mono)', fontSize:9, color:ballColor, letterSpacing:'0.14em', textTransform:'uppercase', marginBottom:8 }}>Player Profile</div>
+        <h2 style={{ fontFamily:'var(--font-main)', fontWeight:700, fontSize:36, letterSpacing:'-0.03em', color:'#fff', marginBottom:18, lineHeight:1.05 }}>
+          Preksha<br/><span style={{ fontWeight:300, color:'rgba(255,255,255,0.35)' }}>Mysore</span>
+        </h2>
+        <p style={{ fontSize:14, lineHeight:1.8, color:'rgba(255,255,255,0.6)', marginBottom:24, fontWeight:300 }}>
+          Product designer with 4 years of experience across SaaS, e-commerce, and AI platforms. Currently focused on AI agents and bot interfaces.
+        </p>
+        <div style={{ display:'flex', flexWrap:'wrap', gap:7, marginBottom:28 }}>
+          {['User Research','Interaction Design','AI/Bot UX','Design Systems','Prototyping','Figma'].map(s => (
+            <span key={s} style={{
+              fontFamily:'var(--font-mono)', fontSize:9, padding:'5px 10px',
+              border:`1px solid ${ballColor}35`, color:`${ballColor}BB`, borderRadius:2, letterSpacing:'0.04em',
+            }}>{s}</span>
+          ))}
+        </div>
+        <div style={{ display:'flex', gap:10 }}>
+          <a href="mailto:preksha@example.com" style={{
+            fontFamily:'var(--font-mono)', fontSize:11, padding:'10px 22px',
+            background:ballColor, color:'#0A0A0A', borderRadius:4,
+            textDecoration:'none', letterSpacing:'0.08em', fontWeight:600,
+          }}>EMAIL</a>
+          {['LinkedIn','Resume'].map(l => (
+            <a key={l} href="#" style={{
+              fontFamily:'var(--font-mono)', fontSize:11, padding:'10px 18px',
+              border:'1px solid rgba(255,255,255,0.12)', color:'rgba(255,255,255,0.55)',
+              borderRadius:4, textDecoration:'none', letterSpacing:'0.08em',
+            }}>{l.toUpperCase()}</a>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const SCORE_LABELS = ['LOVE','15','30','40','GAME'];
+function Scoreboard({ onAbout, ballColor }) {
+  const [scoreIdx, setScoreIdx] = useState(3);
+  useEffect(() => {
+    const t = setInterval(() => setScoreIdx(s => (s+1) % SCORE_LABELS.length), 2800);
+    return () => clearInterval(t);
+  }, []);
+
+  return (
+    <div style={{
+      position:'fixed', top:0, left:0, right:0, height:52, zIndex:200,
+      background:'rgba(4,4,8,0.97)', backdropFilter:'blur(12px)',
+      borderBottom:'1px solid rgba(255,255,255,0.06)',
+      display:'flex', alignItems:'center', padding:'0 28px', gap:0,
+    }}>
+      <svg width="20" height="20" viewBox="0 0 20 20" style={{ marginRight:10, flexShrink:0 }}>
+        <circle cx="10" cy="10" r="9" fill={ballColor}/>
+        <path d="M4 6 Q7 10 4 14" stroke="white" strokeWidth="1.6" fill="none" strokeLinecap="round"/>
+        <path d="M16 6 Q13 10 16 14" stroke="white" strokeWidth="1.6" fill="none" strokeLinecap="round"/>
+      </svg>
+      <span style={{ fontFamily:'var(--font-main)', fontWeight:700, fontSize:14, letterSpacing:'-0.01em', color:'#fff', marginRight:6 }}>Preksha Mysore</span>
+      <span style={{ fontFamily:'var(--font-mono)', fontSize:9, color:'rgba(255,255,255,0.22)', letterSpacing:'0.08em', marginRight:'auto' }}>/ UX DESIGNER</span>
+
+      <div style={{ display:'flex', alignItems:'center', gap:8, marginRight:28 }}>
+        <span style={{ fontFamily:'var(--font-mono)', fontSize:9, color:'rgba(255,255,255,0.2)', letterSpacing:'0.12em', textTransform:'uppercase', marginRight:4 }}>4 YRS</span>
+        <div style={{ display:'flex', gap:3 }}>
+          {SCORE_LABELS.map((s,i) => (
+            <span key={s} style={{
+              fontFamily:'var(--font-mono)', fontSize:9, padding:'3px 7px', borderRadius:2,
+              background: i<=scoreIdx ? `${ballColor}18` : 'transparent',
+              color: i<=scoreIdx ? ballColor : 'rgba(255,255,255,0.18)',
+              border:`1px solid ${i<=scoreIdx ? ballColor+'40' : 'rgba(255,255,255,0.07)'}`,
+              transition:'all 0.5s',
+              animation: i===scoreIdx ? 'scoreFlash 2.8s ease' : 'none',
+            }}>{s}</span>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ display:'flex', gap:20 }}>
+        {['About','Contact'].map(l => (
+          <button key={l} onClick={l==='About' ? onAbout : undefined} style={{
+            fontFamily:'var(--font-mono)', fontSize:9, letterSpacing:'0.12em', textTransform:'uppercase',
+            background:'none', border:'none', color:'rgba(255,255,255,0.35)', cursor:'pointer', padding:0, transition:'color 0.2s',
+          }}
+          onMouseEnter={e => e.target.style.color = ballColor}
+          onMouseLeave={e => e.target.style.color = 'rgba(255,255,255,0.35)'}
+          >{l}</button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TweaksPanel({ tweaks, setTweaks, onCourtChange, onBallChange }) {
+  return (
+    <div id="tweaks-panel">
+      <h3>// court config</h3>
+      <div className="tweak-row">
+        <label>Court Surface</label>
+        <select value={tweaks.courtSurface} onChange={e => { setTweaks(t=>({...t,courtSurface:e.target.value})); onCourtChange(e.target.value); }}>
+          <option value="grass">Wimbledon Grass</option>
+          <option value="clay">Roland Garros Clay</option>
+          <option value="hard">US Open Hard</option>
+        </select>
+      </div>
+      <div className="tweak-row">
+        <label>Ball Color</label>
+        <select value={tweaks.ballColor} onChange={e => { setTweaks(t=>({...t,ballColor:e.target.value})); onBallChange(e.target.value); }}>
+          <option value="yellow">Championship Yellow</option>
+          <option value="orange">Training Orange</option>
+          <option value="white">Classic White</option>
+        </select>
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  const [selected, setSelected] = useState(null);
+  const [showAbout, setShowAbout] = useState(false);
+  const [onCourt, setOnCourt] = useState(false);
+  const [tweaks, setTweaks] = useState(TWEAK_DEFAULTS);
+  const [courtColors, setCourtColors] = useState(COURT_COLORS.grass);
+  const [ballColor, setBallColor] = useState(BALL_COLORS.yellow);
+
+  const handleCourtChange = v => {
+    const c = COURT_COLORS[v] || COURT_COLORS.grass;
+    setCourtColors(c);
+    document.documentElement.style.setProperty('--court', c.court);
+    document.documentElement.style.setProperty('--court-stripe', c.stripe);
+  };
+  const handleBallChange = v => setBallColor(BALL_COLORS[v] || BALL_COLORS.yellow);
+
+  useEffect(() => {
+    const h = e => {
+      if(e.data?.type==='__activate_edit_mode') document.getElementById('tweaks-panel')?.classList.add('visible');
+      else if(e.data?.type==='__deactivate_edit_mode') document.getElementById('tweaks-panel')?.classList.remove('visible');
+    };
+    window.addEventListener('message', h);
+    window.parent.postMessage({ type:'__edit_mode_available' }, '*');
+    return () => window.removeEventListener('message', h);
+  }, []);
+
+  const ballCursor = makeBallCursor(ballColor);
+  const [hit, setHit] = useState(null);
+  const [swings, setSwings] = useState([0,0,0,0]);
+  const audioRef = useRef(null);
+  const playThock = (t0, gain) => {
+    const ctx = audioRef.current; const t = ctx.currentTime + t0;
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = 'sine'; o.frequency.setValueAtTime(520, t); o.frequency.exponentialRampToValueAtTime(120, t + 0.09);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(gain, t + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.12);
+    o.connect(g).connect(ctx.destination); o.start(t); o.stop(t + 0.14);
+    const len = Math.floor(ctx.sampleRate * 0.03), buf = ctx.createBuffer(1, len, ctx.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3);
+    const n = ctx.createBufferSource(), f = ctx.createBiquadFilter(), ng = ctx.createGain();
+    n.buffer = buf; f.type = 'bandpass'; f.frequency.value = 1800; ng.gain.value = gain * 0.8;
+    n.connect(f).connect(ng).connect(ctx.destination); n.start(t);
+  };
+  const playSwoosh = () => {
+    try {
+      if (!audioRef.current) audioRef.current = new (window.AudioContext || window.webkitAudioContext)();
+      const ctx = audioRef.current; ctx.resume(); const t = ctx.currentTime;
+      const len = Math.floor(ctx.sampleRate * 0.28), buf = ctx.createBuffer(1, len, ctx.sampleRate), d = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+      const n = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+      n.buffer = buf; f.type = 'bandpass'; f.Q.value = 1.2;
+      f.frequency.setValueAtTime(500, t); f.frequency.exponentialRampToValueAtTime(3200, t + 0.16); f.frequency.exponentialRampToValueAtTime(900, t + 0.28);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.35, t + 0.13); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.28);
+      n.connect(f).connect(g).connect(ctx.destination); n.start(t);
+    } catch (err) {}
+  };
+  const handleHit = (project, e) => {
+    if (hit) return;
+    try {
+      if (!audioRef.current) audioRef.current = new (window.AudioContext || window.webkitAudioContext)();
+      audioRef.current.resume();
+      playThock(0.27, 0.6); playThock(0.65, 0.3); playThock(0.84, 0.12);
+    } catch (err) {}
+    setHit({ x: e.clientX, y: e.clientY, color: project.accent, key: Date.now() });
+    setTimeout(() => { setSelected(project); setHit(null); }, 1000);
+  };
+
+  return (
+    <div style={{ height:'100vh', overflow:'hidden', display:'flex', flexDirection:'column' }}>
+      <Scoreboard onAbout={() => setShowAbout(true)} ballColor={ballColor}/>
+
+      <div
+        onMouseEnter={() => setOnCourt(true)}
+        onMouseLeave={() => setOnCourt(false)}
+        style={{
+          flex:1, position:'relative', overflow:'hidden',
+          cursor: onCourt ? ballCursor : 'default',
+          background:`repeating-linear-gradient(180deg, ${courtColors.stripe} 0px, ${courtColors.stripe} 40px, ${courtColors.court} 40px, ${courtColors.court} 80px)`,
+          marginTop:52,
+        }}
+      >
+        {/* Dark surround */}
+        <div style={{ position:'absolute', inset:0, zIndex:0, boxShadow:'inset 0 0 0 28px #111', pointerEvents:'none' }}/>
+
+        <CourtLines/>
+        <Net/>
+
+        {/* 4 quadrant grid */}
+        <div style={{
+          position:'absolute', inset:'28px',
+          display:'grid', gridTemplateColumns:'1fr 1fr', gridTemplateRows:'1fr 1fr',
+          zIndex:3,
+        }}>
+          {projects.map(p => (
+            <Quadrant key={p.id} project={p} onOpen={handleHit}/>
+          ))}
+        </div>
+
+        {/* Players at corners */}
+        {[
+          { style:{top:36,left:36}, project:projects[0], flip:false },
+          { style:{top:36,right:36}, project:projects[1], flip:true },
+          { style:{bottom:36,left:36}, project:projects[2], flip:false },
+          { style:{bottom:36,right:36}, project:projects[3], flip:true },
+        ].map((p,i) => (
+          <div key={i} onMouseEnter={() => { setSwings(s => { const n=[...s]; n[i]=n[i]+1; return n; }); playSwoosh(); }} style={{ position:'absolute', ...p.style, zIndex:8, pointerEvents:'auto', cursor:'inherit', display:'flex', flexDirection:'column', alignItems:'center', gap:4 }}>
+            <Player color={p.project.accent} flip={p.flip} pose={['serve','forehand','backhand','ready'][i]} delay={i*0.4} swing={swings[i]}/>
+            <span style={{ fontFamily:'var(--font-mono)', fontSize:8, letterSpacing:'0.1em', color:p.project.accent, background:'rgba(0,0,0,0.55)', padding:'2px 7px', borderRadius:2, whiteSpace:'nowrap' }}>P{i+1} · {p.project.title.toUpperCase()}</span>
+          </div>
+        ))}
+
+        {/* Floating center ball */}
+        <div style={{ position:'absolute', top:'50%', left:'50%', transform:'translate(-50%,-50%)', zIndex:5, pointerEvents:'none', marginTop:-1 }}>
+          <svg width="32" height="32" viewBox="0 0 32 32" style={{ animation:'ballFloat 4s ease-in-out infinite', opacity:0.65 }}>
+            <circle cx="16" cy="16" r="15" fill={ballColor}/>
+            <path d="M7 9 Q11 16 7 23" stroke="white" strokeWidth="2" fill="none" strokeLinecap="round"/>
+            <path d="M25 9 Q21 16 25 23" stroke="white" strokeWidth="2" fill="none" strokeLinecap="round"/>
+          </svg>
+        </div>
+
+        {/* Hint */}
+        <div style={{
+          position:'absolute', bottom:36, left:'50%', transform:'translateX(-50%)',
+          zIndex:7, pointerEvents:'none',
+          fontFamily:'var(--font-mono)', fontSize:9, letterSpacing:'0.12em',
+          color:'rgba(255,255,255,0.28)', textTransform:'uppercase',
+          display:'flex', alignItems:'center', gap:8,
+        }}>
+          <span style={{ width:16, height:1, background:'rgba(255,255,255,0.18)', display:'inline-block' }}/>
+          Click a quadrant to open project
+          <span style={{ width:16, height:1, background:'rgba(255,255,255,0.18)', display:'inline-block' }}/>
+        </div>
+      </div>
+
+      {hit && (
+        <div key={hit.key} style={{ position:'fixed', inset:0, zIndex:250, pointerEvents:'none' }}>
+          <div style={{ position:'absolute', left:hit.x, top:hit.y, width:34, height:34, borderRadius:'50%', border:`2px solid ${hit.color}`, animation:'hitRipple 0.6s ease-out 0.27s both' }}></div>
+          <div style={{ position:'absolute', left:hit.x, top:hit.y, width:34, height:34, borderRadius:'50%', border:'2px solid rgba(255,255,255,0.6)', animation:'hitRipple 0.5s ease-out 0.65s both' }}></div>
+          <div style={{ position:'absolute', left:hit.x, top:hit.y + 16, width:30, height:8, borderRadius:'50%', background:'rgba(0,0,0,0.6)', filter:'blur(2px)', animation:'hitShadow 0.9s linear both' }}></div>
+          <svg width="36" height="36" viewBox="0 0 36 36" style={{ position:'absolute', left:hit.x, top:hit.y, animation:'hitBounce 0.9s cubic-bezier(.45,0,.55,1) both', filter:`drop-shadow(0 0 10px ${ballColor}aa)` }}>
+            <circle cx="18" cy="18" r="17" fill={ballColor}/>
+            <path d="M8 10 Q12 18 8 26" stroke="white" strokeWidth="2.5" fill="none" strokeLinecap="round"/>
+            <path d="M28 10 Q24 18 28 26" stroke="white" strokeWidth="2.5" fill="none" strokeLinecap="round"/>
+          </svg>
+        </div>
+      )}
+      {selected && <ProjectModal project={selected} onClose={() => setSelected(null)}/>}
+      {showAbout && <AboutModal onClose={() => setShowAbout(false)} ballColor={ballColor}/>}
+      <TweaksPanel tweaks={tweaks} setTweaks={setTweaks} onCourtChange={handleCourtChange} onBallChange={handleBallChange}/>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

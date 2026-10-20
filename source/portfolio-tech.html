@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Preksha Mysore — UX Designer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #09090E;
+    --bg1: #0F1018;
+    --bg2: #15161F;
+    --border: rgba(255,255,255,0.07);
+    --border-bright: rgba(255,255,255,0.14);
+    --text: #E8EAF0;
+    --text-mid: #8B8FA8;
+    --text-dim: #4A4D60;
+    --cyan: #00D4E8;
+    --cyan-dim: rgba(0,212,232,0.12);
+    --cyan-glow: rgba(0,212,232,0.25);
+    --font-main: 'Space Grotesk', sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-main);
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  /* Subtle grid lines in the background */
+  body::before {
+    content: '';
+    position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 80px 80px;
+    mask-image: radial-gradient(ellipse 120% 80% at 50% 0%, black 0%, transparent 80%);
+    opacity: 0.5;
+  }
+
+  .reveal { opacity: 0; transform: translateY(20px); transition: opacity 0.6s ease, transform 0.6s ease; }
+  .reveal.visible { opacity: 1; transform: translateY(0); }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--text-dim); border-radius: 2px; }
+
+  /* Tweaks panel */
+  #tweaks-panel {
+    display: none; position: fixed; bottom: 24px; right: 24px;
+    background: var(--bg1); border: 1px solid var(--border-bright);
+    border-radius: 8px; padding: 20px; width: 240px; z-index: 1000;
+    font-family: var(--font-mono); font-size: 12px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 0 1px var(--border);
+  }
+  #tweaks-panel.visible { display: block; }
+  #tweaks-panel h3 { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--cyan); margin-bottom: 16px; }
+  .tweak-row { margin-bottom: 12px; }
+  .tweak-row label { display: block; color: var(--text-mid); margin-bottom: 5px; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; }
+  .tweak-row select { width: 100%; background: var(--bg2); border: 1px solid var(--border-bright); color: var(--text); border-radius: 4px; padding: 6px 8px; font-family: var(--font-mono); font-size: 11px; }
+
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+  @keyframes scanline {
+    0% { transform: translateY(-100%); }
+    100% { transform: translateY(100vh); }
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "accentColor": "cyan",
+  "showGrid": true,
+  "density": "normal"
+}/*EDITMODE-END*/;
+
+const ACCENT_OPTIONS = {
+  cyan:    '#00D4E8',
+  green:   '#00E87A',
+  violet:  '#9B6EFF',
+};
+
+function useReveal(threshold = 0.12) {
+  const ref = useRef();
+  useEffect(() => {
+    const el = ref.current; if (!el) return;
+    const obs = new IntersectionObserver(([e]) => {
+      if (e.isIntersecting) { el.classList.add('visible'); obs.disconnect(); }
+    }, { threshold });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+  return ref;
+}
+
+// Mono label component
+function Tag({ children, accent }) {
+  return (
+    <span style={{
+      fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em',
+      textTransform: 'uppercase', padding: '4px 10px',
+      border: `1px solid ${accent ? 'var(--cyan)' : 'var(--border-bright)'}`,
+      color: accent ? 'var(--cyan)' : 'var(--text-mid)',
+      borderRadius: 3, whiteSpace: 'nowrap',
+    }}>{children}</span>
+  );
+}
+
+function Nav({ scrolled }) {
+  return (
+    <nav style={{
+      position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
+      padding: '0 48px', height: 60,
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      background: scrolled ? 'rgba(9,9,14,0.95)' : 'transparent',
+      backdropFilter: scrolled ? 'blur(16px)' : 'none',
+      borderBottom: `1px solid ${scrolled ? 'var(--border-bright)' : 'transparent'}`,
+      transition: 'all 0.3s',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--cyan)', boxShadow: '0 0 8px var(--cyan)' }} />
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 500, letterSpacing: '0.04em', color: 'var(--text)' }}>
+          PM.design
+        </span>
+      </div>
+      <div style={{ display: 'flex', gap: 32, alignItems: 'center' }}>
+        {['work', 'about', 'contact'].map(link => (
+          <a key={link} href={`#${link}`} style={{
+            fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.1em',
+            textTransform: 'uppercase', color: 'var(--text-mid)',
+            textDecoration: 'none', transition: 'color 0.2s',
+          }}
+          onMouseEnter={e => e.target.style.color = 'var(--cyan)'}
+          onMouseLeave={e => e.target.style.color = 'var(--text-mid)'}
+          >{`/${link}`}</a>
+        ))}
+      </div>
+    </nav>
+  );
+}
+
+function Hero() {
+  const [tick, setTick] = useState(true);
+  useEffect(() => {
+    const t = setInterval(() => setTick(v => !v), 530);
+    return () => clearInterval(t);
+  }, []);
+  const ref = useReveal(0.05);
+
+  return (
+    <section style={{
+      minHeight: '100vh', display: 'flex', flexDirection: 'column',
+      justifyContent: 'center', padding: '120px 48px 80px',
+      position: 'relative',
+    }}>
+      {/* Top-right corner decoration */}
+      <div style={{
+        position: 'absolute', top: 80, right: 48,
+        display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end',
+      }}>
+        {['ux.design', 'saas.products', 'ai.interfaces'].map((s, i) => (
+          <span key={s} style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-dim)', letterSpacing: '0.06em', opacity: 1 - i * 0.25 }}>{s}</span>
+        ))}
+      </div>
+
+      {/* Status bar */}
+      <div ref={ref} className="reveal" style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 48 }}>
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-dim)', letterSpacing: '0.1em' }}>STATUS</span>
+        <span style={{ width: 16, height: 1, background: 'var(--text-dim)' }} />
+        <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--cyan)', boxShadow: '0 0 6px var(--cyan)' }} />
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--cyan)', letterSpacing: '0.1em' }}>AVAILABLE FOR WORK</span>
+      </div>
+
+      {/* Main headline */}
+      <div style={{ maxWidth: 1000 }}>
+        <h1 style={{
+          fontFamily: 'var(--font-main)', fontWeight: 700,
+          fontSize: 'clamp(56px, 7.5vw, 112px)',
+          lineHeight: 0.95, letterSpacing: '-0.03em',
+          color: 'var(--text)', marginBottom: 8,
+        }}>
+          Preksha
+        </h1>
+        <h1 style={{
+          fontFamily: 'var(--font-main)', fontWeight: 300,
+          fontSize: 'clamp(56px, 7.5vw, 112px)',
+          lineHeight: 0.95, letterSpacing: '-0.03em',
+          color: 'var(--text-mid)', marginBottom: 48,
+        }}>
+          Mysore
+          <span style={{
+            display: 'inline-block', width: '0.06em', height: '0.85em',
+            background: 'var(--cyan)', marginLeft: 12, verticalAlign: 'middle',
+            animation: 'blink 1.06s step-end infinite',
+            boxShadow: '0 0 12px var(--cyan)',
+          }} />
+        </h1>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 48, flexWrap: 'wrap' }}>
+          <p style={{
+            fontFamily: 'var(--font-main)', fontSize: 17, lineHeight: 1.7,
+            color: 'var(--text-mid)', maxWidth: 440, fontWeight: 300,
+          }}>
+            UX Designer crafting precision-engineered digital experiences across SaaS, e-commerce, and AI platforms.
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingTop: 4 }}>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {['4 yrs exp', 'SaaS', 'AI/Bots', 'E-commerce'].map(t => <Tag key={t}>{t}</Tag>)}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Bottom stat row */}
+      <div style={{
+        position: 'absolute', bottom: 48, left: 48, right: 48,
+        display: 'flex', alignItems: 'center', gap: 0,
+        borderTop: '1px solid var(--border)',
+        paddingTop: 24,
+      }}>
+        {[['04', 'Selected Projects'], ['4', 'Years Experience'], ['3', 'Design Domains']].map(([num, label], i) => (
+          <div key={i} style={{
+            flex: 1, paddingRight: 32,
+            borderRight: i < 2 ? '1px solid var(--border)' : 'none',
+            marginRight: i < 2 ? 32 : 0,
+          }}>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 28, fontWeight: 500, color: 'var(--cyan)', lineHeight: 1, marginBottom: 4 }}>{num}</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-dim)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>{label}</div>
+          </div>
+        ))}
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-dim)', letterSpacing: '0.1em' }}>SCROLL</span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            {[1,2,3].map(i => <div key={i} style={{ width: 14, height: 1, background: 'var(--text-dim)', opacity: 1 - i * 0.28 }} />)}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+const projects = [
+  {
+    id: '01',
+    slug: 'orbis',
+    title: 'Orbis',
+    subtitle: 'All-in-one SaaS Platform',
+    desc: 'Unified workspace combining resources, project tracking, and timesheets — designed to eliminate context-switching for modern product teams.',
+    tags: ['SaaS', 'Dashboard', 'Enterprise'],
+    stat: ['↑ 38%', 'task completion'],
+    color: '#00D4E8',
+    dim: 'rgba(0,212,232,0.08)',
+  },
+  {
+    id: '02',
+    slug: 'ai-bot',
+    title: 'AI Bot',
+    subtitle: 'Conversational AI Interface',
+    desc: 'Designing trust, transparency, and personality into an AI assistant — where interaction model meets cognitive ergonomics.',
+    tags: ['AI', 'Conversational UI', 'NLP'],
+    stat: ['↑ 61%', 'user retention'],
+    color: '#9B6EFF',
+    dim: 'rgba(155,110,255,0.08)',
+  },
+  {
+    id: '03',
+    slug: 'roommate',
+    title: 'Roommate',
+    subtitle: 'Co-living Matchmaking App',
+    desc: 'A values-driven matching system helping people find compatible roommates through transparent, research-backed profiles.',
+    tags: ['Mobile', 'Consumer', 'Research'],
+    stat: ['↑ 44%', 'match quality score'],
+    color: '#00E87A',
+    dim: 'rgba(0,232,122,0.08)',
+  },
+  {
+    id: '04',
+    slug: 'shop',
+    title: 'Shop',
+    subtitle: 'E-commerce Redesign',
+    desc: 'Rebuilt the checkout and discovery flows for a DTC fashion brand, applying behavioral research to reduce friction at every step.',
+    tags: ['E-commerce', 'Mobile', 'Conversion'],
+    stat: ['↑ 24%', 'conversion rate'],
+    color: '#FFB340',
+    dim: 'rgba(255,179,64,0.08)',
+  },
+];
+
+function ProjectCard({ project, wide, delay }) {
+  const [hovered, setHovered] = useState(false);
+  const ref = useReveal(0.08);
+
+  return (
+    <div ref={ref} className="reveal" style={{ transitionDelay: `${delay}s`, flex: wide ? '1 1 100%' : '1 1 calc(50% - 12px)' }}>
+      <div
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        style={{
+          position: 'relative', overflow: 'hidden',
+          border: `1px solid ${hovered ? project.color + '55' : 'var(--border)'}`,
+          borderRadius: 6,
+          background: hovered ? project.dim : 'var(--bg1)',
+          height: wide ? 420 : 360,
+          cursor: 'pointer',
+          transition: 'all 0.35s ease',
+          boxShadow: hovered ? `0 0 0 1px ${project.color}22, 0 24px 60px rgba(0,0,0,0.4)` : 'none',
+        }}
+      >
+        {/* Top bar */}
+        <div style={{
+          position: 'absolute', top: 0, left: 0, right: 0,
+          height: 2, background: hovered ? project.color : 'transparent',
+          transition: 'background 0.3s',
+          boxShadow: hovered ? `0 0 16px ${project.color}` : 'none',
+        }} />
+
+        {/* Header row */}
+        <div style={{ padding: '28px 28px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-dim)', letterSpacing: '0.1em' }}>{project.id}</span>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {project.tags.map(t => (
+              <span key={t} style={{
+                fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.08em',
+                textTransform: 'uppercase', padding: '3px 8px',
+                border: '1px solid var(--border)', color: 'var(--text-dim)', borderRadius: 2,
+              }}>{t}</span>
+            ))}
+          </div>
+        </div>
+
+        {/* Screen mock */}
+        <div style={{
+          margin: wide ? '24px 28px 0 28px' : '20px 28px 0',
+          height: wide ? 180 : 140,
+          background: 'var(--bg2)', borderRadius: 4,
+          border: '1px solid var(--border)',
+          overflow: 'hidden', position: 'relative',
+          transition: 'opacity 0.3s',
+          opacity: hovered ? 0.5 : 0.8,
+        }}>
+          {/* Fake browser bar */}
+          <div style={{ height: 28, background: 'var(--bg)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', padding: '0 12px', gap: 6 }}>
+            {['#FF5F57','#FEBC2E','#28C840'].map(c => <div key={c} style={{ width: 8, height: 8, borderRadius: '50%', background: c, opacity: 0.5 }} />)}
+            <div style={{ flex: 1, height: 14, background: 'var(--bg1)', borderRadius: 2, margin: '0 12px' }} />
+          </div>
+          {/* Fake UI */}
+          <div style={{ padding: '12px 16px', display: 'flex', gap: 12 }}>
+            <div style={{ width: 120, display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {[1,2,3,4].map(i => <div key={i} style={{ height: 8, background: project.color, opacity: 0.1 + i * 0.04, borderRadius: 2 }} />)}
+            </div>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ height: 10, background: 'var(--border-bright)', borderRadius: 2, width: '70%' }} />
+              <div style={{ display: 'flex', gap: 8 }}>
+                {[1,2,3].map(i => <div key={i} style={{ flex: 1, height: 50, background: project.dim, border: `1px solid ${project.color}20`, borderRadius: 3 }} />)}
+              </div>
+              <div style={{ height: 7, background: 'var(--border)', borderRadius: 2, width: '55%' }} />
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom content */}
+        <div style={{ padding: '20px 28px 28px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+            <div>
+              <h2 style={{
+                fontFamily: 'var(--font-main)', fontWeight: 600,
+                fontSize: wide ? 32 : 26, letterSpacing: '-0.02em',
+                color: 'var(--text)', marginBottom: 4,
+              }}>{project.title}</h2>
+              <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-mid)', letterSpacing: '0.04em' }}>
+                {project.subtitle}
+              </p>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 500, color: project.color, lineHeight: 1 }}>{project.stat[0]}</div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--text-dim)', letterSpacing: '0.08em', textTransform: 'uppercase', marginTop: 3 }}>{project.stat[1]}</div>
+            </div>
+          </div>
+
+          {/* Hover reveal */}
+          <div style={{
+            overflow: 'hidden', maxHeight: hovered ? 60 : 0,
+            opacity: hovered ? 1 : 0, transition: 'max-height 0.35s ease, opacity 0.3s',
+            marginTop: hovered ? 12 : 0,
+          }}>
+            <p style={{ fontSize: 13, color: 'var(--text-mid)', lineHeight: 1.65, fontWeight: 300 }}>{project.desc}</p>
+          </div>
+        </div>
+
+        {/* Hover CTA */}
+        <div style={{
+          position: 'absolute', bottom: 24, right: 28,
+          opacity: hovered ? 1 : 0, transition: 'opacity 0.3s',
+          display: 'flex', alignItems: 'center', gap: 6,
+          fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em',
+          color: project.color,
+        }}>
+          VIEW CASE STUDY <span style={{ fontSize: 14 }}>→</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function WorkSection() {
+  return (
+    <section id="work" style={{ padding: '40px 48px 100px', position: 'relative', zIndex: 1 }}>
+      {/* Section header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 40, paddingBottom: 20, borderBottom: '1px solid var(--border)' }}>
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--cyan)', letterSpacing: '0.14em', textTransform: 'uppercase' }}>01</span>
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-dim)', letterSpacing: '0.14em', textTransform: 'uppercase' }}>/ selected_work</span>
+        <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-dim)', letterSpacing: '0.08em' }}>2021 – 2025</span>
+      </div>
+      {/* Row 1: full */}
+      <div style={{ display: 'flex', gap: 16, marginBottom: 16 }}>
+        <ProjectCard project={projects[0]} wide delay={0} />
+      </div>
+      {/* Row 2: half + half */}
+      <div style={{ display: 'flex', gap: 16, marginBottom: 16 }}>
+        <ProjectCard project={projects[1]} wide={false} delay={0.1} />
+        <ProjectCard project={projects[2]} wide={false} delay={0.2} />
+      </div>
+      {/* Row 3: full */}
+      <div style={{ display: 'flex', gap: 16 }}>
+        <ProjectCard project={projects[3]} wide delay={0} />
+      </div>
+    </section>
+  );
+}
+
+function AboutSection() {
+  const ref = useReveal(0.1);
+  const skills = ['User Research', 'Interaction Design', 'AI / Bot UX', 'Design Systems', 'Figma', 'Usability Testing', 'SaaS Products', 'E-commerce UX', 'Prototyping', 'Data Analysis'];
+  return (
+    <section id="about" style={{ padding: '80px 48px', borderTop: '1px solid var(--border)', position: 'relative', zIndex: 1 }}>
+      <div ref={ref} className="reveal">
+        {/* Section header */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 56 }}>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--cyan)', letterSpacing: '0.14em' }}>02</span>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-dim)', letterSpacing: '0.14em', textTransform: 'uppercase' }}>/ about</span>
+          <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 80 }}>
+          <div>
+            <h2 style={{ fontFamily: 'var(--font-main)', fontWeight: 700, fontSize: 48, letterSpacing: '-0.03em', color: 'var(--text)', marginBottom: 24, lineHeight: 1.05 }}>
+              Preksha<br/>
+              <span style={{ fontWeight: 300, color: 'var(--text-mid)' }}>Mysore</span>
+            </h2>
+            <p style={{ fontSize: 15, lineHeight: 1.8, color: 'var(--text-mid)', marginBottom: 16, fontWeight: 300 }}>
+              Product designer with 4 years of experience working at the intersection of SaaS, e-commerce, and AI. I build systems that feel inevitable — where the right answer is also the obvious one.
+            </p>
+            <p style={{ fontSize: 15, lineHeight: 1.8, color: 'var(--text-mid)', fontWeight: 300 }}>
+              Currently focused on AI agents and bot interfaces, where interaction design meets a new class of cognitive challenges.
+            </p>
+          </div>
+          <div>
+            <div style={{ marginBottom: 36 }}>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-dim)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 16 }}>Capabilities</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {skills.map(s => (
+                  <span key={s} style={{
+                    fontFamily: 'var(--font-mono)', fontSize: 11,
+                    padding: '5px 12px', border: '1px solid var(--border)',
+                    color: 'var(--text-mid)', borderRadius: 3,
+                    cursor: 'default', transition: 'all 0.2s',
+                  }}
+                  onMouseEnter={e => { e.target.style.borderColor = 'var(--cyan)'; e.target.style.color = 'var(--cyan)'; }}
+                  onMouseLeave={e => { e.target.style.borderColor = 'var(--border)'; e.target.style.color = 'var(--text-mid)'; }}
+                  >{s}</span>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-dim)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 16 }}>Experience</div>
+              {[
+                { period: '2022–Present', role: 'Product Designer', where: 'SaaS & AI Platforms' },
+                { period: '2021–2022', role: 'UX Designer', where: 'E-commerce Studio' },
+                { period: '2020–2021', role: 'UI/UX Intern', where: 'Tech Startup' },
+              ].map((e, i) => (
+                <div key={i} style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  padding: '12px 0', borderBottom: '1px solid var(--border)',
+                }}>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)', marginBottom: 2 }}>{e.role}</div>
+                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-dim)', letterSpacing: '0.06em' }}>{e.where}</div>
+                  </div>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--cyan)' }}>{e.period}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ContactSection() {
+  const ref = useReveal(0.1);
+  return (
+    <section id="contact" style={{ padding: '80px 48px 120px', borderTop: '1px solid var(--border)', position: 'relative', zIndex: 1 }}>
+      <div ref={ref} className="reveal">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 64 }}>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--cyan)', letterSpacing: '0.14em' }}>03</span>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-dim)', letterSpacing: '0.14em', textTransform: 'uppercase' }}>/ contact</span>
+          <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 48 }}>
+          <div>
+            <h2 style={{ fontFamily: 'var(--font-main)', fontWeight: 700, fontSize: 'clamp(40px, 5vw, 72px)', letterSpacing: '-0.03em', lineHeight: 1, color: 'var(--text)', marginBottom: 16 }}>
+              Let's build<br/>
+              <span style={{ color: 'var(--cyan)' }}>together.</span>
+            </h2>
+            <p style={{ fontSize: 15, color: 'var(--text-mid)', fontWeight: 300, maxWidth: 400, lineHeight: 1.7 }}>
+              Open to full-time roles and select freelance. Currently available.
+            </p>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 240 }}>
+            <a href="mailto:preksha@example.com" style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '14px 20px', border: '1px solid var(--cyan)',
+              borderRadius: 4, textDecoration: 'none',
+              fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: '0.06em',
+              color: 'var(--cyan)', background: 'transparent',
+              transition: 'all 0.2s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'var(--cyan)'; e.currentTarget.style.color = 'var(--bg)'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--cyan)'; }}
+            >EMAIL →</a>
+            {['LinkedIn', 'Dribbble', 'Resume PDF'].map(l => (
+              <a key={l} href="#" style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '14px 20px', border: '1px solid var(--border)',
+                borderRadius: 4, textDecoration: 'none',
+                fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: '0.06em',
+                color: 'var(--text-mid)', background: 'transparent',
+                transition: 'all 0.2s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--border-bright)'; e.currentTarget.style.color = 'var(--text)'; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-mid)'; }}
+              >{l.toUpperCase()} →</a>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Footer() {
+  return (
+    <footer style={{ padding: '20px 48px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-dim)', letterSpacing: '0.08em' }}>PREKSHA MYSORE © 2025</span>
+      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-dim)', letterSpacing: '0.08em' }}>UX DESIGNER</span>
+    </footer>
+  );
+}
+
+function TweaksPanel({ tweaks, setTweaks }) {
+  return (
+    <div id="tweaks-panel">
+      <h3>// tweaks</h3>
+      <div className="tweak-row">
+        <label>Accent Color</label>
+        <select value={tweaks.accentColor} onChange={e => {
+          const v = e.target.value;
+          setTweaks(t => ({...t, accentColor: v}));
+          document.documentElement.style.setProperty('--cyan', ACCENT_OPTIONS[v]);
+          document.documentElement.style.setProperty('--cyan-dim', ACCENT_OPTIONS[v] + '20');
+        }}>
+          <option value="cyan">Cyan</option>
+          <option value="green">Terminal Green</option>
+          <option value="violet">Violet</option>
+        </select>
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  const [scrolled, setScrolled] = useState(false);
+  const [tweaks, setTweaks] = useState(TWEAK_DEFAULTS);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 40);
+    window.addEventListener('scroll', onScroll);
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.data?.type === '__activate_edit_mode') document.getElementById('tweaks-panel')?.classList.add('visible');
+      else if (e.data?.type === '__deactivate_edit_mode') document.getElementById('tweaks-panel')?.classList.remove('visible');
+    };
+    window.addEventListener('message', handler);
+    window.parent.postMessage({ type: '__edit_mode_available' }, '*');
+    return () => window.removeEventListener('message', handler);
+  }, []);
+
+  return (
+    <>
+      <Nav scrolled={scrolled} />
+      <Hero />
+      <WorkSection />
+      <AboutSection />
+      <ContactSection />
+      <Footer />
+      <TweaksPanel tweaks={tweaks} setTweaks={setTweaks} />
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
